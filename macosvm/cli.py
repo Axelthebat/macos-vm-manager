@@ -615,9 +615,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if not getattr(args, "command", None):
-        return cmd_tui(args)
     try:
+        if not getattr(args, "command", None):
+            return cmd_tui(args)
         return int(args.func(args) or 0)
     except KeyboardInterrupt:
         print()

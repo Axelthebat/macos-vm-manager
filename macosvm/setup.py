@@ -61,47 +61,133 @@ def detect_distro() -> Distro:
 
 
 #: What each distribution needs to build reims-vgpu and run a VM.
+#:
+#: This is the list reims-vgpu's own install script asks for. Keeping the
+#: same one means the build does not stop in the middle asking for a package.
 PACKAGES: dict[str, list[str]] = {
     "arch": [
         "base-devel",
         "git",
-        "meson",
+        "curl",
+        "python",
         "ninja",
+        "pkgconf",
+        "flex",
+        "bison",
+        "bzip2",
         "cmake",
-        "pkg-config",
+        "clang",
+        "lld",
         "glib2",
         "pixman",
-        "libvulkan",
-        "vulkan-tools",
-        "edk2-ovmf",
+        "libslirp",
+        "zlib",
+        "dtc",
+        "pipewire",
+        "libpulse",
+        "alsa-lib",
+        "vulkan-icd-loader",
+        "libx11",
+        "libxext",
+        "libxrandr",
+        "libxcursor",
+        "libxi",
+        "libxfixes",
+        "libxss",
+        "libxtst",
+        "libxkbcommon",
+        "wayland",
+        "libdecor",
+        "mesa",
+        "libdrm",
+        "dbus",
+        "systemd-libs",
+        "gtk3",
     ],
     "debian": [
         "build-essential",
         "git",
-        "meson",
-        "ninja-build",
-        "cmake",
+        "curl",
+        "ca-certificates",
         "pkg-config",
+        "python3",
+        "python3-venv",
+        "ninja-build",
+        "flex",
+        "bison",
+        "bzip2",
+        "cmake",
+        "clang",
+        "lld",
+        "binutils",
         "libglib2.0-dev",
         "libpixman-1-dev",
-        "libvulkan-dev",
-        "vulkan-tools",
-        "ovmf",
-        "qemu-utils",
+        "libslirp-dev",
+        "zlib1g-dev",
+        "libfdt-dev",
+        "libpipewire-0.3-dev",
+        "libpulse-dev",
+        "libasound2-dev",
+        "libvulkan1",
+        "libx11-dev",
+        "libxext-dev",
+        "libxrandr-dev",
+        "libxcursor-dev",
+        "libxi-dev",
+        "libxfixes-dev",
+        "libxss-dev",
+        "libxtst-dev",
+        "libxkbcommon-dev",
+        "libwayland-dev",
+        "libwayland-bin",
+        "libdecor-0-dev",
+        "libegl-dev",
+        "libgl-dev",
+        "libdrm-dev",
+        "libgbm-dev",
+        "libdbus-1-dev",
+        "libudev-dev",
+        "libgtk-3-dev",
     ],
     "fedora": [
         "gcc-c++",
         "make",
         "git",
-        "meson",
+        "curl",
+        "python3",
         "ninja-build",
-        "cmake",
         "pkgconf-pkg-config",
+        "flex",
+        "bison",
+        "bzip2",
+        "cmake",
+        "clang",
+        "lld",
         "glib2-devel",
         "pixman-devel",
-        "vulkan-devel",
-        "vulkan-tools",
-        "edk2-ovmf",
+        "libslirp-devel",
+        "zlib-devel",
+        "dtc",
+        "pipewire-devel",
+        "pulseaudio-devel",
+        "alsa-lib-devel",
+        "vulkan-loader",
+        "libX11-devel",
+        "libXext-devel",
+        "libXrandr-devel",
+        "libXcursor-devel",
+        "libXi-devel",
+        "libXfixes-devel",
+        "libXss-devel",
+        "libXtst-devel",
+        "libxkbcommon-devel",
+        "wayland-devel",
+        "libdecor-devel",
+        "mesa-devel",
+        "libdrm-devel",
+        "dbus-devel",
+        "systemd-devel",
+        "gtk3-devel",
     ],
 }
 
@@ -137,20 +223,50 @@ def _sudo(command: list[str], dry_run: bool = False) -> subprocess.CompletedProc
     return subprocess.run(command, check=False)
 
 
+def _installed(distro: Distro, package: str) -> bool:
+    """True when the package is already on the computer."""
+    try:
+        if distro.family == "arch":
+            result = subprocess.run(["pacman", "-Q", package], capture_output=True, text=True, check=False)
+            return result.returncode == 0
+        if distro.family == "debian":
+            result = subprocess.run(
+                ["dpkg-query", "-W", "-f=${Status}", package],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            return "install ok installed" in (result.stdout or "")
+        if distro.family == "fedora":
+            result = subprocess.run(["rpm", "-q", package], capture_output=True, text=True, check=False)
+            return result.returncode == 0
+    except OSError:
+        return False
+    return False
+
+
 def install_packages(distro: Distro) -> str:
-    """The build dependencies, through the package manager."""
+    """The build dependencies, through the package manager.
+
+    Only the missing ones are installed: a package that is already there
+    needs no sudo, and a setup that runs again does not ask for a password.
+    """
     packages = PACKAGES.get(distro.family)
     if not packages:
         return (
             f"no package list is known for {distro.name}; install the build tools by hand: "
             "a C compiler, meson, ninja, cmake, pkg-config, glib2, pixman and the Vulkan headers"
         )
-    command = ["sudo", *INSTALL_COMMAND[distro.family], *packages]
-    ui.step(f"installing {len(packages)} packages")
+    missing = [package for package in packages if not _installed(distro, package)]
+    if not missing:
+        return f"the {len(packages)} packages are already there"
+
+    command = ["sudo", *INSTALL_COMMAND[distro.family], *missing]
+    ui.step(f"installing {len(missing)} packages")
     result = _sudo(command)
     if result.returncode != 0:
         raise RuntimeError(f"the package manager exited with status {result.returncode}")
-    return f"installed {len(packages)} packages"
+    return f"installed {len(missing)} of {len(packages)} packages"
 
 
 #: The oldest Rust the reims-vgpu builds with.
@@ -170,34 +286,50 @@ def rust_version() -> tuple[int, int, int] | None:
 
 
 def ensure_rust() -> str:
-    """Rust, through rustup when the distribution's package is not there.
+    """Rustup, and the toolchain it pins.
 
-    The reims-vgpu needs a recent Rust; a distribution's package is often
-    older than that, so rustup is used when the installed one is too old.
+    The reims-vgpu build needs rustup, not just a Rust: its
+    rust-toolchain.toml pins the Rust version, and only rustup honours the
+    pin. A Rust that came from the distribution is not enough, and the
+    upstream build script refuses to run without rustup.
     """
-    version = rust_version()
-    if version and version >= MINIMUM_RUST:
-        return f"rustc {'.'.join(str(part) for part in version)}"
+    if shutil.which("rustup"):
+        installed = "rustup is already installed"
+    else:
+        ui.step("installing rustup")
+        result = subprocess.run(
+            ["sh", "-c", f"curl --proto '=https' --tlsv1.2 -sSf {RUSTUP} | sh -s -- -y"],
+            check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError("rustup failed to install")
+        installed = "rustup installed"
 
-    ui.step("installing Rust through rustup")
-    result = subprocess.run(
-        ["sh", "-c", f"curl --proto '=https' --tlsv1.2 -sSf {RUSTUP} | sh -s -- -y"],
-        check=False,
-    )
-    if result.returncode != 0:
-        raise RuntimeError("rustup failed to install")
-    # The tools rustup installs are in ~/.cargo/bin, which this shell may not
-    # have yet. The steps that follow need them.
+    # The tools rustup installs are in ~/.cargo/bin. They have to come first
+    # on the PATH: the build script asks for `rustup` and `cargo`, and the
+    # distribution's cargo would not honour the pinned toolchain.
     cargo_bin = Path.home() / ".cargo" / "bin"
     if cargo_bin.is_dir():
         os.environ["PATH"] = f"{cargo_bin}{os.pathsep}{os.environ.get('PATH', '')}"
-    return "installed through rustup; open a new shell or source ~/.cargo/env"
+
+    version = rust_version()
+    return f"{installed}" + (f", rustc {'.'.join(str(part) for part in version)}" if version else "")
 
 
 def set_max_map_count() -> str:
     """The kernel's mapping limit, for good."""
     path = Path("/etc/sysctl.d/99-reims-vgpu.conf")
     line = f"vm.max_map_count={MAX_MAP_COUNT}\n"
+
+    # Already right? Then there is nothing to change, and no password to ask
+    # for.
+    try:
+        running = int(Path("/proc/sys/vm/max_map_count").read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        running = 0
+    if running >= MAX_MAP_COUNT and path.exists() and line in path.read_text(encoding="utf-8"):
+        return f"the limit is already {MAX_MAP_COUNT}"
+
     ui.step(f"writing {path}")
     result = subprocess.run(
         ["sudo", "tee", str(path)],
@@ -273,7 +405,8 @@ def install_reims_vgpu(source_dir: Path) -> str:
         if result.returncode != 0:
             raise RuntimeError("the clone failed")
     ui.step("building reims-vgpu (this takes a while)")
-    result = subprocess.run(["sh", "scripts/install-ctl.sh"], cwd=str(checkout), check=False)
+    # --yes: the script asks before it installs anything or downloads Rust.
+    result = subprocess.run(["bash", "scripts/install-ctl.sh", "--yes"], cwd=str(checkout), check=False)
     if result.returncode != 0:
         raise RuntimeError(f"the build failed with status {result.returncode}")
     return f"built in {checkout}"

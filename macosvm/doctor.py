@@ -242,8 +242,7 @@ def check_toolchain(report: Report) -> None:
             "Install it from https://rustup.rs, or with your package manager "
             "(`sudo pacman -S rust` on Arch, `sudo apt install rustup` on Debian).",
         )
-        return
-    if version < MINIMUM_RUST:
+    elif version < MINIMUM_RUST:
         needed = ".".join(str(part) for part in MINIMUM_RUST)
         report.add(
             "Rust",
@@ -252,8 +251,21 @@ def check_toolchain(report: Report) -> None:
             "The reims-vgpu builds with a recent Rust. `macosvm setup` installs it "
             "through rustup, which puts the right version side by side with yours.",
         )
-        return
-    report.add("Rust", OK, f"{'.'.join(str(part) for part in version)}")
+    else:
+        report.add("Rust", OK, f"{'.'.join(str(part) for part in version)}")
+
+    # The build needs rustup, whatever the Rust itself is: the reims-vgpu
+    # pins its toolchain, and only rustup reads the pin.
+    if shutil.which("rustup"):
+        report.add("rustup", OK, shutil.which("rustup") or "")
+    else:
+        report.add(
+            "rustup",
+            WARN,
+            "not installed",
+            "The reims-vgpu pins the Rust it builds with, and only rustup reads "
+            "that pin. `macosvm setup` installs it.",
+        )
 
 
 def check_reims_tools(report: Report, paths: Paths) -> None:
