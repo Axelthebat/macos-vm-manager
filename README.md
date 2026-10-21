@@ -121,6 +121,46 @@ desenhar, ele pergunta por número.
 | `logs` | Onde estão os logs de cada VM |
 | `tui` | O menu |
 
+## Desempenho
+
+O macOS instalado numa VM sobre PC não é rápido como um Mac, e a instalação
+é a parte mais lenta de todas. Três motivos, e o que fazer com cada um:
+
+**O instalador roda com renderização por software.** A vGPU só tem driver
+dentro do macOS instalado. O instalador e o Recovery não têm esse driver, e
+o upstream compensa expondo o framebuffer de firmware no dispositivo, que o
+macOS desenha na CPU do host. A tela do instalador fica pesada, e o trabalho
+de verdade (copiar os arquivos, rodar os scripts do instalador) vai a bem.
+
+A补救 que ajuda é baixar a resolução durante a instalação, porque cada
+pixel desenhado por software custa:
+
+```bash
+macosvm set mac --resolution 1280x800
+```
+
+Vale a pena para VMs novas:
+
+```bash
+macosvm create mac --macos tahoe
+macosvm set mac --resolution 1280x800
+```
+
+**A memória do host é o recurso raro.** O reims-ctl dá à VM metade da
+memória do computador, entre 4 e 16 GB. Com 16 GB no host, sobram 8 GB para
+tudo o mais, e o cache de página do Linux fica pequeno, o que atrapalha a
+escrita de dezenas de gigabytes da instalação. Feche o que estiver pesado
+enquanto instala.
+
+**O disco é NVMe, mas o guest enxerga um IDE que finge ser rotacional.** O
+QEMU que o upstream compila anexa o disco como `ide-hd` com
+`rotation_rate=1`. Não há como mudar isso pela linha de comando sem mexer no
+QEMU: o `reims-ctl` monta o `-drive` do disco, e um segundo `-drive` com o
+mesmo identificador faz o QEMU recusar subir.
+
+Depois que a instalação acaba, a vGPU entra em ação e o desktop usa a
+aceleração de verdade. A diferença é grande.
+
 ## Limites conhecidos
 
 - A imagem do OpenCore é a do reims-util, com a identidade que ele gera. Não

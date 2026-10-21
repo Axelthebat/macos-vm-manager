@@ -10,7 +10,7 @@ import signal
 import time
 from pathlib import Path
 
-from . import autostart, doctor, net, reims, setup, ui, vms
+from . import autostart, doctor, net, reims, setup, term, ui, vms
 from .config import Paths, load_settings
 
 VERSION = "0.1.0"
@@ -254,6 +254,9 @@ def cmd_set(args: argparse.Namespace) -> int:
         ("--audio", args.audio),
         ("--network", args.network),
         ("--ssh-port", args.ssh_port),
+        ("--stop-timeout", args.stop_timeout),
+        ("--log-level", args.log_level),
+        ("--extra-args", args.extra_args),
     ):
         if value is None:
             continue
@@ -564,6 +567,9 @@ def build_parser() -> argparse.ArgumentParser:
     setting.add_argument("--audio", type=lambda v: v.lower() in ("1", "true", "yes"))
     setting.add_argument("--network", type=lambda v: v.lower() in ("1", "true", "yes"))
     setting.add_argument("--ssh-port", type=int)
+    setting.add_argument("--stop-timeout", type=int, help="seconds `stop` waits for the guest")
+    setting.add_argument("--log-level", help="the library's log filter, such as info")
+    setting.add_argument("--extra-args", help="more QEMU arguments, as one quoted string")
     setting.set_defaults(func=cmd_set)
 
     backup = subparsers.add_parser("backup", help="save a VM in one file")
@@ -616,9 +622,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if not getattr(args, "command", None):
-            return cmd_tui(args)
-        return int(args.func(args) or 0)
+        # The programs this calls draw a progress line and rewrite it in
+        # place. Some terminals are set to turn that into a line of its own.
+        with term.sane_terminal():
+            if not getattr(args, "command", None):
+                return cmd_tui(args)
+            return int(args.func(args) or 0)
     except KeyboardInterrupt:
         print()
         ui.info("stopped")

@@ -7,6 +7,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from macosvm import doctor
 from macosvm.config import Paths
@@ -57,11 +58,14 @@ class ChecksTest(unittest.TestCase):
             self.assertIn(expected, names)
 
     def test_a_machine_without_the_tools_is_not_ok(self) -> None:
-        # The tools are not installed in the test's tree, so they are a failure.
-        report = doctor.run_all(self.paths)
+        # The tools are installed on this computer, so they are taken away
+        # for the test: the check has to notice that they are missing.
+        with mock.patch("macosvm.reims.find_tool", return_value=None):
+            report = doctor.run_all(self.paths)
         tools = [check for check in report.checks if check.name in ("reims-ctl", "reims-util")]
         self.assertTrue(tools)
-        self.assertTrue(any(check.status == doctor.FAIL for check in tools))
+        self.assertTrue(all(check.status == doctor.FAIL for check in tools))
+        self.assertTrue(all(check.fix for check in tools))
 
     def test_the_json_is_a_plain_object(self) -> None:
         report = doctor.run_all(self.paths)
