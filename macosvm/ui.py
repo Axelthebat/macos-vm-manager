@@ -44,15 +44,15 @@ def dim(text: str) -> str:
 
 
 def info(message: str) -> None:
-    print(message)
+    print(message, flush=True)
 
 
 def step(message: str) -> None:
-    print(f"{paint('==>', CYAN)} {message}")
+    print(f"{paint('==>', CYAN)} {message}", flush=True)
 
 
 def ok(message: str) -> None:
-    print(f"{paint('ok', GREEN)}   {message}")
+    print(f"{paint('ok', GREEN)}   {message}", flush=True)
 
 
 def warn(message: str) -> None:
@@ -67,9 +67,9 @@ def err(message: str) -> None:
 
 
 def heading(text: str) -> None:
-    print()
-    print(bold(text))
-    print(dim("-" * len(text)))
+    print(flush=True)
+    print(bold(text), flush=True)
+    print(dim("-" * len(text)), flush=True)
 
 
 def table(rows: Sequence[Sequence[str]], headers: Sequence[str] | None = None) -> None:
