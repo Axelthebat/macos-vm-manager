@@ -60,9 +60,19 @@ canal no Discord.
 ## Instalação
 
 ```bash
-git clone https://github.com/seu-usuario/macos-vm-manager
+git clone https://github.com/Axelthebat/macos-vm-manager
 cd macos-vm-manager
-pip install --user .          # ou: pipx install .
+./install.sh --system-deps   # os pacotes do sistema (aqui precisa de sudo)
+```
+
+O `install.sh` instala o `macosvm` num ambiente próprio
+(`~/.local/share/macosvm/venv`) e cria o comando em `~/.local/bin/macosvm`.
+Com `--setup`, ele já prepara o computador depois de instalar.
+
+O caminho manual, para quem prefere:
+
+```bash
+pipx install .                # ou: pip install --user .
 ```
 
 Depois, prepare o computador:
