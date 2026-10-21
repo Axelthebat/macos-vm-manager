@@ -1,79 +1,69 @@
 # macosvm
 
-**Crie e gerencie VMs macOS no Linux, com a GPU virtual do reims-vgpu.**
+Gerenciador de VMs macOS para Linux, construído sobre o
+[reims-vgpu](https://github.com/steelbrain/reims-vgpu).
 
-`macosvm` é um gerenciador de máquinas virtuais macOS para Linux. Ele não
-implementa a emulação: ele dirige o [reims-vgpu](https://github.com/steelbrain/reims-vgpu)
-e o [reims-util](https://github.com/steelbrain/reims-util), que já fazem a
-GPU virtual, a imagem do OpenCore e os instaladores do macOS.
+O `macosvm` não emula nada. Ele dirige o `reims-ctl` e o `reims-util`, dois
+programas livres que já fazem a parte difícil: a GPU virtual, a imagem do
+OpenCore e os instaladores do macOS. O que falta no ecossistema é a gerência
+dessas VMs em um computador de mesa, e é o que este projeto entrega.
 
-O que ele acrescenta é a parte que ninguém tinha feito de forma aberta: um
-diagnóstico do computador, a preparação do ambiente, a importação de discos
-que já têm macOS, backup em um arquivo só, rede com ponte, início automático
-com a sessão e um menu de terminal.
+## O que já é livre
 
----
-
-## Por que este projeto existe
-
-O ecossistema de VMs macOS no Linux tem duas metades, e só uma delas é
-aberta:
-
-| Peça | O que faz | Licença |
+| Projeto | Função | Licença |
 | --- | --- | --- |
-| [reims-vgpu](https://github.com/steelbrain/reims-vgpu) | A GPU virtual (Metal no macOS, Vulkan no Linux), o QEMU que a usa e o `reims-ctl` | GPL-2.0-or-later OU LGPL-3.0-or-later |
-| [reims-util](https://github.com/steelbrain/reims-util) | A imagem do OpenCore com a identidade do Mac, o OVMF e os instaladores do macOS | GPL-2.0-or-later OU LGPL-3.0-or-later |
-| **Gerenciadores** | Criar, listar, iniciar, manter, diagnosticar | geralmente fechados e pagos |
+| [reims-vgpu](https://github.com/steelbrain/reims-vgpu) | GPU virtual (Metal no macOS, Vulkan no Linux), o QEMU que a usa e o `reims-ctl` | GPL-2.0-or-later OU LGPL-3.0-or-later |
+| [reims-util](https://github.com/steelbrain/reims-util) | Imagem do OpenCore com a identidade do Mac, OVMF e os instaladores do macOS | GPL-2.0-or-later OU LGPL-3.0-or-later |
 
-O trabalho difícil — a paravirtualização gráfica, a identidade do Mac, os
-instaladores verificados contra os chunklists da Apple — já está aberto e
-bem feito. O que costuma ficar fechado é a cola em volta: o `setup`, o
-`doctor`, o menu, o backup, a ponte de rede.
+A paravirtualização gráfica, a identidade do Mac por VM e os instaladores
+verificados contra a assinatura da Apple já são software livre. O que costuma
+vir fechado é a gerência: preparação do ambiente, diagnóstico, importação de
+discos, backup, rede, início automático.
 
-Este projeto é essa cola, aberta. Sem assinatura, sem `.deb` fechado, sem
-canal no Discord.
+## O que este projeto acrescenta
 
-### O que este projeto **não** é
+- `setup`: prepara o computador, do zero, em passos que podem ser repetidos.
+- `doctor`: aponta o que falta e como corrigir, sem mudar nada.
+- `import`: adota um disco QCOW2 que já tem macOS, com identidade nova.
+- `backup` e `restore`: a VM inteira em um arquivo `.tar.gz`.
+- `network`: uma ponte de rede, para a VM receber um endereço próprio.
+- `autostart`: um serviço do systemd que liga a VM com a sessão.
+- `tui`: um menu de terminal, em que toda ação também existe como comando.
 
-- **Não é um fork do OSX-REIMS, do UTM, do OSX-KVM ou do PROXMOX.** Nada
-  aqui vem do código de nenhum deles.
-- **Não usa código proprietário.** Foi escrito a partir da documentação
-  pública do reims-vgpu e do reims-util, e do comportamento observável
-  desses programas. Nenhum binário fechado foi decompilado, inspecionado ou
-  enviado a uma ferramenta de IA. A licença do OSX-REIMS proíbe tudo isso —
-  e, mesmo permitindo, não seria o caminho direito: o upstream aberto já
-  entrega tudo o que é preciso.
-- **Não distribui macOS.** O macOS é baixado da Apple, pelo computador do
-  usuário, e verificado contra a assinatura da Apple.
+## O que este projeto não faz
 
----
+- Não é um fork do OSX-REIMS, do UTM, do OSX-KVM ou do PROXMOX, e não usa
+  código de nenhum deles.
+- Não usa código proprietário. Foi escrito a partir da documentação pública
+  do reims-vgpu e do reims-util e do comportamento observável desses
+  programas. Nenhum binário fechado foi decompilado, inspecionado ou enviado
+  a uma ferramenta de IA.
+- Não distribui macOS. O instalador vem da Apple, pelo computador do usuário,
+  e o reims-util confere a assinatura da Apple antes de usá-lo.
 
 ## Requisitos
 
-- Linux x86_64, com KVM (`/dev/kvm`) e virtualização habilitada no BIOS.
-- Uma GPU com Vulkan 1.2 ou mais, e o driver correspondente instalado.
-- Rust 1.98.1 ou mais novo (para compilar o reims-vgpu).
-- O `reims-vgpu` compilado e o `reims-util` instalado.
+- Linux x86_64, com KVM (`/dev/kvm`) e virtualização habilitada no firmware.
+- GPU com Vulkan 1.2 ou superior e o driver correspondente no sistema. A GPU
+  não precisa de suporte nativo do macOS: é a GPU virtual que o macOS vê.
+- rustup, com Rust 1.98.1 ou mais novo. O reims-vgpu fixa a versão do Rust
+  no `rust-toolchain.toml`, e só o rustup lê essa fixação.
+- O reims-vgpu compilado e o reims-util instalado.
 
-`macosvm doctor` confere tudo isso e diz o que falta.
+`macosvm doctor` confere cada item e diz o que fazer quando falta algo.
 
 ## Instalação
 
 ```bash
 git clone https://github.com/Axelthebat/macos-vm-manager
 cd macos-vm-manager
-./install.sh --system-deps   # os pacotes do sistema (aqui precisa de sudo)
+./install.sh --system-deps
 ```
 
-O `install.sh` instala o `macosvm` num ambiente próprio
+O script instala o `macosvm` em um ambiente próprio
 (`~/.local/share/macosvm/venv`) e cria o comando em `~/.local/bin/macosvm`.
-Com `--setup`, ele já prepara o computador depois de instalar.
-
-O caminho manual, para quem prefere:
-
-```bash
-pipx install .                # ou: pip install --user .
-```
+A flag `--system-deps` instala os pacotes de compilação da distribuição, e é
+a única etapa que pede sudo. Sem ela, o script instala só o gerenciador.
 
 Depois, prepare o computador:
 
@@ -81,16 +71,22 @@ Depois, prepare o computador:
 macosvm setup
 ```
 
-O `setup` instala os pacotes de compilação da sua distribuição, ajusta o
-kernel (`vm.max_map_count`), põe o seu usuário no grupo certo, compila o
-reims-vgpu e instala o reims-util. Ele é idempotente: rodar de novo pula o
-que já está pronto. Com `--dry-run`, ele diz o que faria e não toca em nada.
+O `setup` executa seis passos: instala os pacotes que faltam, instala o
+rustup, ajusta `vm.max_map_count`, põe o usuário no grupo do `/dev/kvm` e do
+`/dev/udmabuf`, compila o reims-vgpu e instala o reims-util. Passos já
+concluídos são pulados, e `--dry-run` imprime o plano sem executar nada.
+
+Quem prefere instalar o gerenciador por conta própria:
+
+```bash
+pipx install .                # ou: pip install --user .
+```
 
 ## Uso
 
 ```bash
 macosvm                        # o menu
-macosvm list                   # as VMs
+macosvm list                   # as VMs e o estado de cada uma
 macosvm create mac             # uma VM nova, com macOS da Apple
 macosvm start mac              # liga
 macosvm stop mac               # desliga
@@ -102,30 +98,22 @@ macosvm network on             # ponte: a VM ganha um endereço próprio
 macosvm autostart on mac       # a VM abre com a sessão
 ```
 
-Cada VM guarda as próprias configurações (memória, processadores, tela, GPU,
+Cada VM guarda as próprias configurações (processadores, memória, tela, GPU,
 som, rede) e vale a partir da próxima inicialização.
 
-### O menu
+O menu se desenha na tela e navega com as setas. Sem um terminal em que
+desenhar, ele pergunta por número.
 
-```
-macosvm
-```
-
-O menu faz as mesmas coisas que os comandos, e cada ação do menu também
-existe como comando, para quem prefere o terminal ou quer automatizar.
-
----
-
-## O que está implementado
+## Comandos
 
 | Comando | O que faz |
 | --- | --- |
-| `setup` | Preparar o computador: pacotes, kernel, grupos, reims-vgpu, reims-util |
-| `doctor` | Conferir o computador, sem mudar nada. `--json` para um programa |
+| `setup` | Prepara o computador: pacotes, rustup, kernel, grupos, reims-vgpu, reims-util |
+| `doctor` | Confere o computador sem mudar nada. `--json` para um programa |
 | `list` | As VMs e o estado de cada uma. `--json` |
 | `create` | Uma VM nova, com instalador da Apple ou um de sua escolha |
-| `import` | Adotar um disco QCOW2 que já tem macOS, com identidade nova |
-| `start` `stop` `reset` `poweroff` `term` | O ciclo de vida da VM |
+| `import` | Adota um disco QCOW2 que já tem macOS, com identidade nova |
+| `start` `stop` `reset` `poweroff` `term` | Ciclo de vida da VM |
 | `show` `set` | As configurações da VM |
 | `backup` `restore` | A VM inteira em um arquivo `.tar.gz`, e de volta |
 | `network` | A ponte, e pôr uma VM nela |
@@ -133,58 +121,53 @@ existe como comando, para quem prefere o terminal ou quer automatizar.
 | `logs` | Onde estão os logs de cada VM |
 | `tui` | O menu |
 
-## O que ainda não está
+## Limites conhecidos
 
-- A imagem do OpenCore é a do `reims-util`, com a identidade que ele gera.
-  Não há ainda uma EFI com mais ajustes (SSDTs, kexts extras) escolhida por
-  perfil de hardware.
-- A ponte de rede move o endereço do computador para a ponte e põe a porta
-  física sob ela. Não há a opção de escolher a rede por VM com mais de uma
-  ponte.
-- Não há interface gráfica; só o terminal.
-- Sem testes de integração: os testes cobrem a lógica, não uma VM de verdade.
+- A imagem do OpenCore é a do reims-util, com a identidade que ele gera. Não
+  há uma EFI com ajustes por perfil de hardware.
+- A ponte move o endereço do computador para ela e põe a porta física sob
+  ela. Só existe uma ponte, e ela serve a todas as VMs que estão nela.
+- Só o terminal. Não há interface gráfica.
+- Os testes cobrem a lógica, não uma VM em funcionamento. Não há teste de
+  integração.
+- O caminho de hóspede x86_64 é o que o reims-vgpu valida no Linux. O
+  reims-util baixa instaladores do macOS 10.13 ao 26.
 
----
+## Questões legais
 
-## Notas legais
+A licença do macOS permite o seu uso somente em hardware Apple. Rodar macOS
+em uma VM sobre PC é uso em hardware que não é Apple, e é ilegal sob os
+termos da Apple. O destino deste projeto é estudo, experimento e teste em
+ambiente descartável. Quem precisa do macOS para trabalhar deve comprar um
+Mac.
 
-- **A licença do macOS permite o uso do macOS somente em hardware Apple.**
-  Rodar macOS em uma VM sobre PC é uso em hardware que não é Apple, e é
- illegal sob os termos da Apple. Isto é o mesmo que qualquer projeto de
-  hackintosh ou de VMs macOS que exista. Use para estudo e experimento, e
-  compre um Mac se precisar do macOS no dia a dia.
-- **A Apple não está associada a este projeto.** macOS e Apple são marcas da
-  Apple Inc. O reims-vgpu e o macosvm são projetos independentes, sem
-  patrocínio nem aprovação da Apple.
-- **`macosvm` é MIT.** Ele chama o `reims-ctl` e o `reims-util` como
-  programas separados; as licenças deles (GPL-2.0-or-later OU
-  LGPL-3.0-or-later) valem para eles e para os arquivos que eles
-  distribuem.
+macOS e Apple são marcas da Apple Inc. Este projeto não é afiliado,
+patrocinado nem aprovado pela Apple Inc. O mesmo vale para o reims-vgpu e
+para o reims-util, que são projetos independentes.
+
+O `macosvm` é MIT porque chama o `reims-ctl` e o `reims-util` como programas
+separados, sem embutir nem modificar o código deles. As licenças de cada
+dependência estão em [NOTICE.md](NOTICE.md). Se o projeto passar a modificar
+esse código, a licença do macosvm passa a ter que ser compatível com a
+deles, e a decisão se toma antes de escrever o código.
 
 ## Contribuindo
 
-Este projeto é novo e pequeno. As coisas que mais ajudam:
-
-1. **Um relato de bug** com a saída de `macosvm doctor` e o trecho do log
-   que importa. Nenhum dado de identidade das VMs: o `doctor` não os tem.
-   O modelo está em [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE/bug-report.yml).
-2. **Uma correção** — abra um PR, rode os testes antes:
+1. **Relato de bug.** Inclua a saída do `macosvm doctor` e o trecho do log
+   que importa. O `doctor` não tem número de série nem outro dado de
+   identidade das VMs, então pode ser colado inteiro. O modelo está em
+   [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE/bug-report.yml).
+2. **Correção.** Abra um PR e rode os testes antes:
    ```bash
    python -m unittest discover -s tests -v
    ruff check . && ruff format --check .
    ```
-3. **Uma EFI melhor.** A parte mais frágil hoje é o OpenCore: um perfil de
-   hardware, com os ajustes que ele precisa, seria uma contribuição grande.
+3. **Uma EFI melhor.** A parte mais frágil hoje é o OpenCore. Um perfil de
+   hardware, com os ajustes que ele precisa, resolveria a maior limitação do
+   projeto.
 
-As convenções do projeto estão em [CLAUDE.md](CLAUDE.md).
+As convenções de código estão em [CLAUDE.md](CLAUDE.md).
 
 ## Licença
 
-MIT — veja [LICENSE](LICENSE). O que este projeto usa, de quem é e sob que
-licença está em [NOTICE.md](NOTICE.md).
-
-O `macosvm` é MIT porque ele **chama** o `reims-ctl` e o `reims-util` como
-programas separados, sem embutir nem modificar o código deles. Se um dia ele
-passar a fazer isso, a licença muda para uma compatível com a deles — e a
-decisão se toma antes de escrever o código.
-
+MIT. O texto está em [LICENSE](LICENSE).
