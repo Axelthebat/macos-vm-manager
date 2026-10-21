@@ -1,0 +1,44 @@
+name: Relato de problema
+
+description: O que deu errado
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pelo relato. A saída de `macosvm doctor` é a primeira coisa
+        que ajuda: ela não tem número de série nem outro dado de identidade
+        das VMs, então pode ser colada inteira.
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: A saída de `macosvm doctor`
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: O que você fez e o que aconteceu
+      description: O comando, e o que ele respondeu.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Se houver, o trecho do log que importa.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: macos
+    attributes:
+      label: A versão do macOS na VM, se houver
+      placeholder: tahoe 26.6.2
+    validations:
+      required: false
